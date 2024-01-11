@@ -3,19 +3,20 @@ pragma solidity ^0.8.19;
 
 contract TwitterClone {
   struct User {
-    string username;
+    bytes32 username;
     address userAdddress;
   }
 
   struct Tweet {
-    string content;
+    bytes32 ipfsHash;
     uint likes;
     uint retweets;
   }
 
   User[] public users;
   mapping (address => Tweet) userTweet;
-  mapping (string => bool) userExistMap;
+  mapping (bytes32 => bool) usernameExistMap;
+  mapping (address => bool) userExistMap;
 
   address admin;
 
@@ -23,39 +24,47 @@ contract TwitterClone {
     admin = msg.sender;
   }
 
-  modifier userNotExist(string memory _username) {
-    require(!userExistMap[_username], "Username already exists");
+  event TweetPosted();
+  event TweetLiked();
+  event TweetRetweeted();
+
+  modifier usernameNotExist(bytes32 _username) {
+    require(!usernameExistMap[_username], "Username already exists");
     _;
   }
 
-  modifier lessThan140(string memory _content) {
-    require(bytes(_content).length <= 140, "Should be less then 140 characters");
+  modifier userExist() {
+    require(userExistMap[msg.sender], "User not exists");
     _;
   }
 
-  function addUser(string memory _username) userNotExist(_username) public {
+  function addUser(bytes32 _username) usernameNotExist(_username) public {
     users.push(User({
       username: _username,
       userAdddress: msg.sender
     }));
-    userExistMap[_username] = true;
+    usernameExistMap[_username] = true;
+    userExistMap[msg.sender] = true;
   }
 
-  function postTweet(string memory _content) lessThan140(_content) public {
+  function postTweet(bytes32 _content) userExist public {
     userTweet[msg.sender] = Tweet({
-      content: _content,
+      ipfsHash: _content,
       likes: 0,
       retweets: 0
     });
+    emit TweetPosted();
   }
 
   function likeTweet(address _user) public {
     userTweet[_user].likes += 1;
+    emit TweetLiked();
   }
 
   function retweet(address _user) public {
     userTweet[_user].retweets += 1;
     userTweet[msg.sender] = userTweet[_user];
+    emit TweetRetweeted();
   }
 
   function getUsers() public view returns (User[] memory) {
